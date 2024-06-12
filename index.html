@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<head>
+    <script src="https://obniz.com/js/jquery-3.2.1.min.js"></script>
+    <script src="https://unpkg.com/obniz@3.x/obniz.js"></script>
+</head>
+<body>
+    <script>
+      var obniz = new Obniz("7238-6542");
+      // 日本時間のオフセット (JSTはUTC+9)
+    function getJapanTime() {
+        const now = new Date();
+        const jstOffset = 9 * 60 * 60 * 1000; // 9時間をミリ秒に変換
+        const japanTime = new Date(now.getTime() + jstOffset);
+        
+        const hours = japanTime.getUTCHours();
+        const minutes = japanTime.getUTCMinutes();
+        const seconds = japanTime.getUTCSeconds();
+        
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+      console.log(getJapanTime());
+
+      // 今日の日付を取得
+      const today = new Date();
+
+      // 日付をフォーマット
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0'); // 月は0から始まるため+1が必要
+      const day = String(today.getDate()).padStart(2, '0');
+
+      // フォーマットされた日付を表示
+      const formattedDate = `${year}-${month}-${day}`;
+
+      const japanTime = getJapanTime();
+      //日本時間: Wed Jun 12 2024 09:23:25 GMT+0900 (日本標準時
+      const compTime = '20:00:00';
+      
+      function compareTimes(japanTime, compTime) {
+        const [hours1, minutes1, seconds1] = japanTime.split(':').map(Number);
+        const [hours2, minutes2, seconds2] = compTime.split(':').map(Number);
+
+        if (hours1 < hours2 || (hours1 === hours2 && minutes1 < minutes2) || (hours1 === hours2 && minutes1 === minutes2 && seconds1 < seconds2)) {
+            return -1;
+        } else if (hours1 > hours2 || (hours1 === hours2 && minutes1 > minutes2) || (hours1 === hours2 && minutes1 === minutes2 && seconds1 > seconds2)) {
+            return 1;
+        } else {
+            return 0;
+        }
+      }
+
+    const result = compareTimes(japanTime, compTime);
+
+    if (result === 1) {
+        console.log('動作中。');
+        obniz.onconnect = async function () {
+      
+        //人感センサーとブザーで音が鳴る不審者感知センサーを作る
+
+        // 人感センサー
+        var sensor = obniz.wired("Keyestudio_PIR", {signal:0, vcc:1, gnd:2});
+        // ブザー
+        var speaker = obniz.wired("Keyestudio_Buzzer", {signal:9, vcc:10, gnd:11});
+
+        sensor.onchange = function(val){
+          if(val){
+            speaker.play(50)
+          }else{
+            speaker.stop();
+          }
+          console.log(val ? 'なにものかを検知' : '異常なし');
+        }
+        //console.logで出たものをそのままsheetDBにぽいして終わり
+      }
+    } else if (result === -1) {
+        console.log('停止中。');
+    }
+
+    const data = {
+                data: [
+                    { Date: formattedDate, Time: japanTime , Value: result}
+                ]
+            };
+
+    fetch('https://sheetdb.io/api/v1/2h0cq1mz5rdba', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+    </script>
+</body>
+</html>
